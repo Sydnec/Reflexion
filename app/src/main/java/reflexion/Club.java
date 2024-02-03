@@ -7,11 +7,8 @@ public class Club {
     private Double poids;
 
     // Constructor
-    public Club(Long id, int version, String fabricant, Double poids) {
-        this.id = id;
-        this.version = version;
-        this.fabricant = fabricant;
-        this.poids = poids;
+    public Club() {
+        
     }
 
     // Getters
