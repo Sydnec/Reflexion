@@ -4,6 +4,7 @@
 package reflexion;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.sql.*;
 
 public class EntityManagerImpl {
@@ -12,31 +13,6 @@ public class EntityManagerImpl {
     // Constructor
     public EntityManagerImpl() {
         initializeDb();
-    }
-
-    public static void main(String[] args) {
-        Club club = new Club();
-        club.setFabricant("un nom");
-        club.setPoids(10.3);
-
-        Club club2 = new Club();
-        club2.setFabricant("un autre nom");
-        club2.setPoids(10.0);
-
-        Club club3 = new Club();
-        club3.setFabricant("un nieme nom");
-        club3.setPoids(9.0);
-
-        EntityManagerImpl em = new EntityManagerImpl();
-        em.persist(club);
-        em.persist(club2);
-        em.persist(club3);
-
-        Club trouve = em.<Club>find(Club.class, 1);
-		System.out.println(trouve.getFabricant() + " " + trouve.getId() + " " + trouve.getPoids());
-
-        // Fermer la connexion après les tests
-        em.closeConnection();
     }
 
     // Methodes
@@ -57,32 +33,11 @@ public class EntityManagerImpl {
                     if (field.getName().equals("version")) {
                         continue;
                     }
-                    String fieldName = field.getType().getSimpleName();
-                    
-                    switch (fieldName) {
-                        case "Long":
-                            entityClass.getMethod("set" + capitalizeFirstLetter(field.getName()), Long.class).invoke(
-                                    entity,
-                                    result.getLong(field.getName()));
-                            break;
-                        case "Integer", "int":
-                            entityClass.getMethod("set" + capitalizeFirstLetter(field.getName()), int.class).invoke(
-                                    entity,
-                                    result.getInt(field.getName()));
-                            break;
-                        case "Double":
-                            entityClass.getMethod("set" + capitalizeFirstLetter(field.getName()), Double.class).invoke(
-                                    entity,
-                                    result.getDouble(field.getName()));
-                            break;
-                        case "String":
-                            entityClass.getMethod("set" + capitalizeFirstLetter(field.getName()), String.class).invoke(
-                                    entity,
-                                    result.getString(field.getName()));
-                            break;
-                        default:
-                            throw new IllegalArgumentException("Type not supported: " + field.getType().getName());
-                    }
+                    String fieldName = field.getName();
+                    Class<?> fieldType = field.getType();
+                    Method setterMethod = entityClass.getMethod("set" + capitalizeFirstLetter(fieldName), fieldType);
+
+                    setterMethod.invoke(entity, result.getObject(fieldName, fieldType));
                 }
             }
         } catch (SQLException | ReflectiveOperationException e) {
@@ -93,6 +48,63 @@ public class EntityManagerImpl {
 
     public <T> T merge(T entity) {
         T mergedEntity = null;
+        try {
+            if (entity != null) {
+                Class<?> entityClass = entity.getClass();
+                String tableName = entityClass.getSimpleName().toLowerCase();
+
+                // Récupération des attributs et valeurs
+                StringBuilder columns = new StringBuilder("");
+                StringBuilder values = new StringBuilder("");
+
+                for (Field field : entityClass.getDeclaredFields()) {
+                    if (field.getName().equals("version")) {
+                        continue;
+                    } else {
+                        columns.append(field.getName()).append(",");
+                        if (field.getType().getName().equals("java.lang.String")) {
+                            values.append("'").append(
+                                    entityClass.getMethod("get" + capitalizeFirstLetter(field.getName()))
+                                            .invoke(entity))
+                                    .append("',");
+                        } else {
+                            values.append(
+                                    entityClass.getMethod("get" + capitalizeFirstLetter(field.getName()))
+                                            .invoke(entity))
+                                    .append(",");
+                        }
+                    }
+                }
+
+                // Construction de la requête SQL
+                String updateQuery = "UPDATE " + tableName + " SET ";
+                for (Field field : entityClass.getDeclaredFields()) {
+                    if (!field.getName().equals("id") && !field.getName().equals("version")) {
+                        updateQuery += field.getName() + " = ";
+                        if (field.getType().getName().equals("java.lang.String")) {
+                            updateQuery += "'" + entityClass.getMethod("get" + capitalizeFirstLetter(field.getName()))
+                                    .invoke(entity) + "'";
+                        } else {
+                            updateQuery += entityClass.getMethod("get" + capitalizeFirstLetter(field.getName()))
+                                    .invoke(entity);
+                        }
+                        updateQuery += ",";
+                    }
+                }
+                updateQuery = updateQuery.substring(0, updateQuery.length() - 1); // Remove trailing comma
+                updateQuery += " WHERE id = " + entityClass.getMethod("getId").invoke(entity);
+
+                // Exécution de la requête
+                Statement statement = connection.createStatement();
+                statement.executeUpdate(updateQuery);
+
+                // Récupération de l'entité fusionnée
+                mergedEntity = find((Class<T>) entityClass, entityClass.getMethod("getId").invoke(entity));
+                System.out.println("Entity merged successfully !");
+            }
+        } catch (SQLException | ReflectiveOperationException e) {
+            e.printStackTrace();
+        }
         return mergedEntity;
     }
 
@@ -143,6 +155,9 @@ public class EntityManagerImpl {
                 if (resultSet.next()) {
                     Long generatedId = resultSet.getLong(1);
                     System.out.println("Entity persisted successfully ! ID: " + generatedId);
+                    Method setterMethod = entityClass.getMethod("setId", Long.class);
+
+                    setterMethod.invoke(entity, generatedId);
                 }
             }
         } catch (SQLException | ReflectiveOperationException e) {
