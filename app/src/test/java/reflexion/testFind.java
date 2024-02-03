@@ -6,9 +6,9 @@ package reflexion;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-class AppTest {
+class EntityManagerImplTest {
     @Test void appHasAGreeting() {
-        App classUnderTest = new App();
+        EntityManagerImpl classUnderTest = new EntityManagerImpl();
         assertNotNull(classUnderTest.getGreeting(), "app should have a greeting");
     }
 }
