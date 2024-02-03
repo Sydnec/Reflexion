@@ -8,13 +8,17 @@ public class EntityManagerImpl {
         System.out.println("Hello World !");
     }
 
-    public Club find(Class<Club> class1, Long id) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'find'");
+    public <T> T find (Class<T> entityClass, Object primaryKey) {
+        // TODO
+        return null;
     }
 
-    public void persist(Club club) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'persist'");
+    public <T> T merge (T entity){
+        // TODO
+        return null; 
+    }
+    
+    public void persist(Object entity) {
+        // TODO
     }
 }
