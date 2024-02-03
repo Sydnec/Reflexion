@@ -2,6 +2,7 @@ package reflexion;
 
 public class Club {
     private Long id;
+    @SuppressWarnings("unused")
     private int version;
     private String fabricant;
     private Double poids;

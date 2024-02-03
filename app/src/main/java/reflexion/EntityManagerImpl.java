@@ -46,6 +46,7 @@ public class EntityManagerImpl {
         return entity;
     }
 
+    @SuppressWarnings("unchecked")
     public <T> T merge(T entity) {
         T mergedEntity = null;
         try {
