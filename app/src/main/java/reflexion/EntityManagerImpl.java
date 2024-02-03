@@ -3,22 +3,94 @@
  */
 package reflexion;
 
+import java.lang.reflect.Field;
+import java.sql.*;
+
 public class EntityManagerImpl {
-    public static void main(String[] args) {
-        System.out.println("Hello World !");
+    private Connection connection;
+
+    // Constructor
+    public EntityManagerImpl() {
+        initializeDb();
     }
 
-    public <T> T find (Class<T> entityClass, Object primaryKey) {
+    // Methodes
+    public <T> T find(Class<T> myClubClass, Object primaryKey) {
         // TODO
         return null;
     }
 
-    public <T> T merge (T entity){
+    public <T> T merge(T entity) {
         // TODO
-        return null; 
+        return null;
     }
-    
+
     public void persist(Object entity) {
         // TODO
+    }
+
+    
+    // Fermeture de la connexion
+    public void closeConnection() {
+        try {
+            if (connection != null && !connection.isClosed()) {
+                connection.close();
+                System.out.println("Database connection successfully closed!");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Privates methodes
+    private void initializeDb() {
+        // Constantes
+        final String DB_URL = "jdbc:hsqldb:mem:database";
+        final String DB_USER = "SA";
+        final String DB_PASSWORD = "";
+
+        try {
+            connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+            Statement statement = connection.createStatement();
+
+            // Récupération de la class Club
+            Class<?> myClubClass = Club.class;
+            // Récupération du nom de la class
+            String tableName = myClubClass.getSimpleName();
+
+            // Création de la commande SQL
+            StringBuilder createTableSQL = new StringBuilder("CREATE TABLE IF NOT EXISTS " + tableName + " (");
+            // Parcours des attributs
+            for (Field field : myClubClass.getDeclaredFields()) {
+                // Attribution du type de l'attribut
+                String type = "";
+                switch (field.getType().getName()) {
+                    case "java.lang.Long":
+                        type = "BIGINT";
+                        break;
+                    case "java.lang.Integer", "int":
+                        type = "INT";
+                        break;
+                    case "java.lang.Double":
+                        type = "DOUBLE";
+                        break;
+                    case "java.lang.String":
+                        type = "VARCHAR(255)";
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Type not supported: " + field.getType().getName());
+                }
+
+                // Création de l'attribut
+                createTableSQL.append(field.getName() + " " + type + ",");
+            }
+            createTableSQL.append("PRIMARY KEY (id))");
+
+            // Execution de la commande SQL
+            statement.executeUpdate(createTableSQL.toString());
+            System.out.println("Table created successfully!");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 }

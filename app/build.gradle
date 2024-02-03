@@ -18,7 +18,8 @@ repositories {
 dependencies {
     // Use JUnit Jupiter for testing.
     testImplementation libs.junit.jupiter
-    testImplementation 'org.hsqldb:hsqldb:2.7.1'
+
+    implementation 'org.hsqldb:hsqldb:2.7.1'
     implementation 'com.google.guava:guava:31.1-jre'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
@@ -41,4 +42,11 @@ application {
 tasks.named('test') {
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
+}
+
+test {
+    systemProperty 'h2.url', 'jdbc:hsqldb:mem:testdb'
+    systemProperty 'h2.driver', 'org.hsqldb.jdbc.JDBCDriver'
+    systemProperty 'h2.username', 'sa'
+    systemProperty 'h2.password', ''
 }
