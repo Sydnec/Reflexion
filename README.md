@@ -1,5 +1,3 @@
-
-
 # Gestionnaire d'Entités avec Java, Gradle et HSQLDB
 
 Ce projet propose une implémentation simple d'un gestionnaire d'entités en Java, utilisant la réflexion et le framework Gradle. Il intègre également une base de données HSQLDB en mémoire pour la persistance des entités.
@@ -40,14 +38,14 @@ EntityManagerImpl entityManager = new EntityManagerImpl();
 
 // Persistance d'une nouvelle entité
 Club newClub = new Club();
-club.setFabricant("Fabricant1");
+newClub.setFabricant("Fabricant1");
 entityManager.persist(newClub);
 
 // Recherche d'une entité par clé primaire
-Club club = entityManager.find(Club.class, 0);
+Club club = entityManager.find(Club.class, 1);
 
 // Modification d'une entité
-newClub.setFabricant("Fabricant2");
+club.setFabricant("Fabricant2");
 
 // Fusion de l'entité pour mettre à jour la base de données
 Club mergedClub = entityManager.merge(club);
