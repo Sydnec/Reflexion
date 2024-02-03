@@ -6,8 +6,6 @@ package reflexion;
 import java.lang.reflect.Field;
 import java.sql.*;
 
-import javax.swing.plaf.nimbus.State;
-
 public class EntityManagerImpl {
     private static Connection connection;
 
@@ -34,7 +32,8 @@ public class EntityManagerImpl {
         em.persist(club2);
         em.persist(club3);
 
-        em.<Club> find(Club.class, 2);
+        Club trouve = em.<Club>find(Club.class, 1);
+		System.out.println(trouve.getFabricant() + " " + trouve.getId() + " " + trouve.getPoids());
 
         // Fermer la connexion après les tests
         em.closeConnection();
@@ -51,16 +50,39 @@ public class EntityManagerImpl {
                             ResultSet.TYPE_SCROLL_INSENSITIVE,
                             ResultSet.CONCUR_UPDATABLE)
                     .executeQuery(
-                            "SELECT * FROM " + tableName);
+                            "SELECT * FROM " + tableName + " WHERE id = " + primaryKey);
             if (result.first()) {
                 entity = entityClass.getDeclaredConstructor().newInstance();
                 for (Field field : entityClass.getDeclaredFields()) {
                     if (field.getName().equals("version")) {
                         continue;
                     }
-                    // entityClass.getMethod("set" + capitalizeFirstLetter(field.getName()), field.getType()).invoke(
-                    //         entity,
-                    //         result.getString(field.getName()));
+                    String fieldName = field.getType().getSimpleName();
+                    
+                    switch (fieldName) {
+                        case "Long":
+                            entityClass.getMethod("set" + capitalizeFirstLetter(field.getName()), Long.class).invoke(
+                                    entity,
+                                    result.getLong(field.getName()));
+                            break;
+                        case "Integer", "int":
+                            entityClass.getMethod("set" + capitalizeFirstLetter(field.getName()), int.class).invoke(
+                                    entity,
+                                    result.getInt(field.getName()));
+                            break;
+                        case "Double":
+                            entityClass.getMethod("set" + capitalizeFirstLetter(field.getName()), Double.class).invoke(
+                                    entity,
+                                    result.getDouble(field.getName()));
+                            break;
+                        case "String":
+                            entityClass.getMethod("set" + capitalizeFirstLetter(field.getName()), String.class).invoke(
+                                    entity,
+                                    result.getString(field.getName()));
+                            break;
+                        default:
+                            throw new IllegalArgumentException("Type not supported: " + field.getType().getName());
+                    }
                 }
             }
         } catch (SQLException | ReflectiveOperationException e) {
@@ -165,17 +187,17 @@ public class EntityManagerImpl {
                 }
                 // Attribution du type de l'attribut
                 String type = "";
-                switch (field.getType().getName()) {
-                    case "java.lang.Long":
+                switch (field.getType().getSimpleName()) {
+                    case "Long":
                         type = "BIGINT";
                         break;
-                    case "java.lang.Integer", "int":
+                    case "Integer", "int":
                         type = "INT";
                         break;
-                    case "java.lang.Double":
+                    case "Double":
                         type = "DOUBLE";
                         break;
-                    case "java.lang.String":
+                    case "String":
                         type = "VARCHAR(255)";
                         break;
                     default:

@@ -26,7 +26,6 @@ class EntityManagerImplTest {
 
 		EntityManagerImpl em = new EntityManagerImpl();
 		Club trouve = em.<Club> find(Club.class, club.getId());
-		System.out.println(trouve);
-		// Assertions.assertEquals(club.getFabricant(), trouve.getFabricant());
+		Assertions.assertEquals(club.getFabricant(), trouve.getFabricant());
     }
 }
