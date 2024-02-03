@@ -16,10 +16,6 @@ public class Club {
         return id;
     }
 
-    public int getVersion() {
-        return version;
-    }
-
     public String getFabricant() {
         return fabricant;
     }
@@ -31,10 +27,6 @@ public class Club {
     // Setters
     public void setId(Long id) {
         this.id = id;
-    }
-
-    public void setVersion(int version) {
-        this.version = version;
     }
 
     public void setFabricant(String fabricant) {

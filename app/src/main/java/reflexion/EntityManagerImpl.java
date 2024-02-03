@@ -4,7 +4,12 @@
 package reflexion;
 
 import java.lang.reflect.Field;
-import java.sql.*;
+import java.lang.reflect.Method;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 
 public class EntityManagerImpl {
     private Connection connection;
@@ -14,22 +19,98 @@ public class EntityManagerImpl {
         initializeDb();
     }
 
+    public static void main(String[] args) {
+        EntityManagerImpl entityManager = new EntityManagerImpl();
+
+        // Insérer des données de test dans la table Club
+        Club club1 = new Club();
+        club1.setFabricant("Fabricant A");
+        club1.setPoids(10.3);
+
+        entityManager.persist(club1);
+
+        // Tester la méthode find avec la classe Club et une clé primaire spécifique
+        Club club = entityManager.find(Club.class, club1.getId());
+
+        if (club != null) {
+            System.out.println("Entity found: " + club);
+        } else {
+            System.out.println("Entity not found.");
+        }
+
+        // Fermer la connexion après les tests
+        entityManager.closeConnection();
+    }
+
     // Methodes
-    public <T> T find(Class<T> myClubClass, Object primaryKey) {
-        // TODO
-        return null;
+    public <T> T find(Class<T> entityClass, Object primaryKey) {
+        T entity = null;
+        try {
+            String tableName = entityClass.getSimpleName();
+
+            ResultSet result = connection
+                    .createStatement(
+                            ResultSet.TYPE_SCROLL_INSENSITIVE,
+                            ResultSet.CONCUR_UPDATABLE)
+                    .executeQuery(
+                            "SELECT * FROM " + tableName + " WHERE id = " + primaryKey);
+
+            if (result.first()) {
+                entity = entityClass.getDeclaredConstructor().newInstance();
+                for (Field field : entityClass.getDeclaredFields()) {
+                    if (field.getName() == "version") {
+                        break;
+                    }
+                    entityClass.getMethod("set" + capitalizeFirstLetter(field.getName()), field.getType()).invoke(
+                            entity,
+                            result.getString(field.getName()));
+                }
+            }
+        } catch (SQLException | ReflectiveOperationException e) {
+            e.printStackTrace();
+        }
+        return entity;
     }
 
     public <T> T merge(T entity) {
-        // TODO
         return null;
     }
 
     public void persist(Object entity) {
-        // TODO
+        try {
+            if (entity != null) {
+                Class<?> entityClass = entity.getClass();
+                String tableName = entityClass.getSimpleName();
+
+                // Récupération des attributs et valeurs
+                StringBuilder columns = new StringBuilder();
+                StringBuilder values = new StringBuilder();
+
+                for (Field field : entityClass.getDeclaredFields()) {
+                    if (field.getName() == "version") {
+                        break;
+                    }
+                    columns.append(field.getName()).append(",");
+                    values.append("'").append(
+                            entityClass.getMethod("get" + capitalizeFirstLetter(field.getName())).invoke(entity))
+                            .append("',");
+                }
+
+                // Construction de la requête SQL
+                String insertQuery = "INSERT INTO " + tableName + " (" + columns.substring(0, columns.length() - 1)
+                        + ") VALUES ("
+                        + values.substring(0, values.length() - 1) + ")";
+
+                // Exécution de la requête
+                connection.createStatement().executeUpdate(insertQuery);
+
+                System.out.println("Entity persisted successfully!");
+            }
+        } catch (SQLException | ReflectiveOperationException e) {
+            e.printStackTrace();
+        }
     }
 
-    
     // Fermeture de la connexion
     public void closeConnection() {
         try {
@@ -54,14 +135,17 @@ public class EntityManagerImpl {
             Statement statement = connection.createStatement();
 
             // Récupération de la class Club
-            Class<?> myClubClass = Club.class;
+            Class<?> entityClass = Club.class;
             // Récupération du nom de la class
-            String tableName = myClubClass.getSimpleName();
+            String tableName = entityClass.getSimpleName();
 
             // Création de la commande SQL
             StringBuilder createTableSQL = new StringBuilder("CREATE TABLE IF NOT EXISTS " + tableName + " (");
             // Parcours des attributs
-            for (Field field : myClubClass.getDeclaredFields()) {
+            for (Field field : entityClass.getDeclaredFields()) {
+                if (field.getName() == "version") {
+                    break;
+                }
                 // Attribution du type de l'attribut
                 String type = "";
                 switch (field.getType().getName()) {
@@ -92,5 +176,12 @@ public class EntityManagerImpl {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+    }
+
+    public static String capitalizeFirstLetter(String input) {
+        if (input == null || input.isEmpty()) {
+            return input;
+        }
+        return Character.toUpperCase(input.charAt(0)) + input.substring(1);
     }
 }
