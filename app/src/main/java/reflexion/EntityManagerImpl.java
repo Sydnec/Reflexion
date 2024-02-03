@@ -4,15 +4,12 @@
 package reflexion;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
+
+import javax.swing.plaf.nimbus.State;
 
 public class EntityManagerImpl {
-    private Connection connection;
+    private static Connection connection;
 
     // Constructor
     public EntityManagerImpl() {
@@ -20,50 +17,50 @@ public class EntityManagerImpl {
     }
 
     public static void main(String[] args) {
-        EntityManagerImpl entityManager = new EntityManagerImpl();
+        Club club = new Club();
+        club.setFabricant("un nom");
+        club.setPoids(10.3);
 
-        // Insérer des données de test dans la table Club
-        Club club1 = new Club();
-        club1.setFabricant("Fabricant A");
-        club1.setPoids(10.3);
+        Club club2 = new Club();
+        club2.setFabricant("un autre nom");
+        club2.setPoids(10.0);
 
-        entityManager.persist(club1);
+        Club club3 = new Club();
+        club3.setFabricant("un nieme nom");
+        club3.setPoids(9.0);
 
-        // Tester la méthode find avec la classe Club et une clé primaire spécifique
-        Club club = entityManager.find(Club.class, club1.getId());
+        EntityManagerImpl em = new EntityManagerImpl();
+        em.persist(club);
+        em.persist(club2);
+        em.persist(club3);
 
-        if (club != null) {
-            System.out.println("Entity found: " + club);
-        } else {
-            System.out.println("Entity not found.");
-        }
+        em.<Club> find(Club.class, 2);
 
         // Fermer la connexion après les tests
-        entityManager.closeConnection();
+        em.closeConnection();
     }
 
     // Methodes
     public <T> T find(Class<T> entityClass, Object primaryKey) {
         T entity = null;
         try {
-            String tableName = entityClass.getSimpleName();
+            String tableName = entityClass.getSimpleName().toLowerCase();
 
             ResultSet result = connection
                     .createStatement(
                             ResultSet.TYPE_SCROLL_INSENSITIVE,
                             ResultSet.CONCUR_UPDATABLE)
                     .executeQuery(
-                            "SELECT * FROM " + tableName + " WHERE id = " + primaryKey);
-
+                            "SELECT * FROM " + tableName);
             if (result.first()) {
                 entity = entityClass.getDeclaredConstructor().newInstance();
                 for (Field field : entityClass.getDeclaredFields()) {
-                    if (field.getName() == "version") {
-                        break;
+                    if (field.getName().equals("version")) {
+                        continue;
                     }
-                    entityClass.getMethod("set" + capitalizeFirstLetter(field.getName()), field.getType()).invoke(
-                            entity,
-                            result.getString(field.getName()));
+                    // entityClass.getMethod("set" + capitalizeFirstLetter(field.getName()), field.getType()).invoke(
+                    //         entity,
+                    //         result.getString(field.getName()));
                 }
             }
         } catch (SQLException | ReflectiveOperationException e) {
@@ -73,27 +70,41 @@ public class EntityManagerImpl {
     }
 
     public <T> T merge(T entity) {
-        return null;
+        T mergedEntity = null;
+        return mergedEntity;
     }
 
     public void persist(Object entity) {
         try {
             if (entity != null) {
                 Class<?> entityClass = entity.getClass();
-                String tableName = entityClass.getSimpleName();
+                String tableName = entityClass.getSimpleName().toLowerCase();
 
                 // Récupération des attributs et valeurs
-                StringBuilder columns = new StringBuilder();
-                StringBuilder values = new StringBuilder();
+                StringBuilder columns = new StringBuilder("");
+                StringBuilder values = new StringBuilder("");
 
                 for (Field field : entityClass.getDeclaredFields()) {
-                    if (field.getName() == "version") {
-                        break;
+                    if (field.getName().equals("version")) {
+                        continue;
+                    } else {
+                        columns.append(field.getName()).append(",");
+                        if (field.getName().equals("id")) {
+                            values.append("DEFAULT,");
+                        } else {
+                            if (field.getType().getName().equals("java.lang.String")) {
+                                values.append("'").append(
+                                        entityClass.getMethod("get" + capitalizeFirstLetter(field.getName()))
+                                                .invoke(entity))
+                                        .append("',");
+                            } else {
+                                values.append(
+                                        entityClass.getMethod("get" + capitalizeFirstLetter(field.getName()))
+                                                .invoke(entity))
+                                        .append(",");
+                            }
+                        }
                     }
-                    columns.append(field.getName()).append(",");
-                    values.append("'").append(
-                            entityClass.getMethod("get" + capitalizeFirstLetter(field.getName())).invoke(entity))
-                            .append("',");
                 }
 
                 // Construction de la requête SQL
@@ -102,9 +113,15 @@ public class EntityManagerImpl {
                         + values.substring(0, values.length() - 1) + ")";
 
                 // Exécution de la requête
-                connection.createStatement().executeUpdate(insertQuery);
+                Statement statement = connection.createStatement();
+                statement.executeUpdate(insertQuery);
+                // Récupération de la clé générée
+                ResultSet resultSet = statement.executeQuery("CALL IDENTITY()");
 
-                System.out.println("Entity persisted successfully!");
+                if (resultSet.next()) {
+                    Long generatedId = resultSet.getLong(1);
+                    System.out.println("Entity persisted successfully ! ID: " + generatedId);
+                }
             }
         } catch (SQLException | ReflectiveOperationException e) {
             e.printStackTrace();
@@ -137,14 +154,14 @@ public class EntityManagerImpl {
             // Récupération de la class Club
             Class<?> entityClass = Club.class;
             // Récupération du nom de la class
-            String tableName = entityClass.getSimpleName();
+            String tableName = entityClass.getSimpleName().toLowerCase();
 
             // Création de la commande SQL
             StringBuilder createTableSQL = new StringBuilder("CREATE TABLE IF NOT EXISTS " + tableName + " (");
             // Parcours des attributs
             for (Field field : entityClass.getDeclaredFields()) {
-                if (field.getName() == "version") {
-                    break;
+                if (field.getName().equals("version")) {
+                    continue;
                 }
                 // Attribution du type de l'attribut
                 String type = "";
@@ -164,15 +181,19 @@ public class EntityManagerImpl {
                     default:
                         throw new IllegalArgumentException("Type not supported: " + field.getType().getName());
                 }
-
                 // Création de l'attribut
-                createTableSQL.append(field.getName() + " " + type + ",");
+                if (field.getName().equals("id")) {
+                    createTableSQL.append(field.getName() + " " + type + " IDENTITY PRIMARY KEY,");
+                } else {
+                    createTableSQL.append(field.getName() + " " + type + ",");
+                }
+
             }
-            createTableSQL.append("PRIMARY KEY (id))");
 
             // Execution de la commande SQL
-            statement.executeUpdate(createTableSQL.toString());
-            System.out.println("Table created successfully!");
+            statement.executeUpdate(createTableSQL.substring(0, createTableSQL.length() - 1) + ");");
+
+            System.out.println("Table created successfully !");
         } catch (SQLException e) {
             e.printStackTrace();
         }
